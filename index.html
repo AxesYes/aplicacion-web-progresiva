@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Tienda PWA de Videojuegos y Accesorios</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="app.webmanifest" />
+
+  <script>
+    let streamGlobal = null;
+    const juegos = [
+      {
+        id: 1,
+        title: "The Legend of Zelda: Breath of the Wild",
+        platform: "Nintendo Switch",
+        price: 1499.99,
+        genre: "Aventura",
+        image: "https://upload.wikimedia.org/wikipedia/en/0/0b/The_Legend_of_Zelda_Breath_of_the_Wild.jpg"
+      },
+      {
+        id: 2,
+        title: "Elden Ring",
+        platform: "PC / PS5 / Xbox",
+        price: 1349.99,
+        genre: "RPG",
+        image: "https://upload.wikimedia.org/wikipedia/en/6/6b/Elden_Ring_Box_art.jpg"
+      },
+      {
+        id: 3,
+        title: "FIFA 24",
+        platform: "PC / Consolas",
+        price: 1199.99,
+        genre: "Deportes",
+        image: "https://upload.wikimedia.org/wikipedia/en/1/15/FIFA_24_cover_art.jpg"
+      },
+      {
+        id: 4,
+        title: "Call of Duty: Modern Warfare II",
+        platform: "PC / Consolas",
+        price: 1499.99,
+        genre: "Shooter",
+        image: "https://upload.wikimedia.org/wikipedia/en/a/a5/Call_of_Duty_Modern_Warfare_II_cover_art.jpg"
+      }
+    ];
+    const suscripciones = [
+      {
+        id: 101,
+        title: "Xbox Game Pass",
+        price: 199.99,
+        description: "Acceso ilimitado a juegos en Xbox y PC.",
+        image: "https://upload.wikimedia.org/wikipedia/commons/4/4b/Xbox_Game_Pass_logo.svg"
+      },
+      {
+        id: 102,
+        title: "PlayStation Plus",
+        price: 299.99,
+        description: "Juegos gratis, online y descuentos exclusivos.",
+        image: "https://upload.wikimedia.org/wikipedia/commons/9/92/PlayStation_Plus_Logo.svg"
+      },
+      {
+        id: 103,
+        title: "Nintendo Switch Online",
+        price: 99.99,
+        description: "Juego online y clásicos de Nintendo.",
+        image: "https://upload.wikimedia.org/wikipedia/commons/b/bb/Nintendo_Switch_Online_logo.svg"
+      }
+    ];
+    const accesorios = [
+      {
+        id: 201,
+        title: "Control inalámbrico Xbox",
+        price: 999.99,
+        platform: "Xbox",
+        description: "Control ergonómico con batería recargable.",
+        image: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Xbox_controller_2020.png"
+      },
+      {
+        id: 202,
+        title: "Audífonos gaming PS5",
+        price: 1199.99,
+        platform: "PlayStation",
+        description: "Sonido 3D y micrófono integrado.",
+        image: "https://upload.wikimedia.org/wikipedia/commons/f/f7/PlayStation_Wireless_Headset_3000.png"
+      },
+      {
+        id: 203,
+        title: "Estuche para Nintendo Switch",
+        price: 399.99,
+        platform: "Nintendo",
+        description: "Protector resistente y portátil.",
+        image: "https://upload.wikimedia.org/wikipedia/commons/8/8d/Nintendo_Switch.png"
+      }
+    ];
+    let carrito = [];
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(() => console.log('Service Worker registrado'))
+          .catch(err => console.error('Error al registrar Service Worker', err));
+      });
+    }
+
+    function renderProductos(seccion, productos, filtro="") {
+      const contenedor = document.getElementById(seccion);
+      contenedor.innerHTML = "";
+      const term = filtro.toLowerCase();
+
+      productos
+        .filter(p =>
+          p.title.toLowerCase().includes(term) ||
+          (p.platform && p.platform.toLowerCase().includes(term)) ||
+          (p.genre && p.genre.toLowerCase().includes(term)) ||
+          (p.description && p.description.toLowerCase().includes(term))
+        )
+        .forEach(producto => {
+          const card = document.createElement("article");
+          card.className = "producto-card";
+
+          let contenido = `<img src="${producto.image}" alt="${producto.title}" class="producto-imagen" />`;
+          contenido += `<h3 class="producto-titulo">${producto.title}</h3>`;
+          if (producto.platform) contenido += `<p class="producto-plataforma">${producto.platform}</p>`;
+          if (producto.genre) contenido += `<p class="producto-genero">${producto.genre}</p>`;
+          if (producto.description) contenido += `<p class="producto-descripcion">${producto.description}</p>`;
+          contenido += `<p class="producto-precio">$${producto.price.toFixed(2)} MXN</p>`;
+          contenido += `<button class="btn-agregar" data-id="${producto.id}" data-seccion="${seccion}">Agregar al carrito</button>`;
+
+          card.innerHTML = contenido;
+          contenedor.appendChild(card);
+        });
+    }
+
+    function cargarCarrito() {
+      const guardado = localStorage.getItem("pwa-carrito");
+      carrito = guardado ? JSON.parse(guardado) : [];
+      actualizarBadge();
+    }
+
+    function guardarCarrito() {
+      localStorage.setItem("pwa-carrito", JSON.stringify(carrito));
+      actualizarBadge();
+    }
+
+    function actualizarBadge() {
+      document.getElementById("carrito-cantidad").textContent = carrito.length;
+    }
+
+    function manejarAgregarCarrito(e) {
+      if (!e.target.classList.contains("btn-agregar")) return;
+      const id = Number(e.target.dataset.id);
+      const seccion = e.target.dataset.seccion;
+      let producto;
+
+      if (seccion === "juegos-lista") producto = juegos.find(p => p.id === id);
+      else if (seccion === "suscripciones-lista") producto = suscripciones.find(p => p.id === id);
+      else if (seccion === "accesorios-lista") producto = accesorios.find(p => p.id === id);
+
+      if (producto) {
+        carrito.push(producto);
+        guardarCarrito();
+        alert(`Agregado: ${producto.title}`);
+      }
+    }
+
+    function abrirCarrito() {
+      document.getElementById("modal-carrito").classList.remove("oculto");
+      renderizarCarrito();
+    }
+
+    function cerrarCarrito() {
+      document.getElementById("modal-carrito").classList.add("oculto");
+    }
+
+    function renderizarCarrito() {
+      const contenedor = document.getElementById("carrito-items");
+      const totalElem = document.getElementById("carrito-total");
+      contenedor.innerHTML = "";
+      if (carrito.length === 0) {
+        contenedor.innerHTML = "<li>El carrito está vacío.</li>";
+        totalElem.textContent = "";
+        return;
+      }
+      let total = 0;
+      carrito.forEach((item, i) => {
+        total += item.price;
+        const li = document.createElement("li");
+        li.textContent = `${item.title} - $${item.price.toFixed(2)} MXN`;
+        const btnEliminar = document.createElement("button");
+        btnEliminar.textContent = "Eliminar";
+        btnEliminar.onclick = () => {
+          carrito.splice(i, 1);
+          guardarCarrito();
+          renderizarCarrito();
+        };
+        li.appendChild(btnEliminar);
+        contenedor.appendChild(li);
+      });
+      totalElem.textContent = `Total: $${total.toFixed(2)} MXN`;
+    }
+
+    function filtrarTodo(e) {
+      const valor = e.target.value;
+      renderProductos("juegos-lista", juegos, valor);
+      renderProductos("suscripciones-lista", suscripciones, valor);
+      renderProductos("accesorios-lista", accesorios, valor);
+    }
+
+    async function iniciarCamara() {
+      const video = document.getElementById("video");
+      try {
+        streamGlobal = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = streamGlobal;
+      } catch (err) {
+        alert("Error accediendo a la cámara: " + err.message);
+      }
+    }
+
+    function detenerCamara() {
+      if (streamGlobal) {
+        streamGlobal.getTracks().forEach(track => track.stop());
+        streamGlobal = null;
+        document.getElementById("video").srcObject = null;
+      }
+    }
+
+    function tomarFoto() {
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+      const contexto = canvas.getContext("2d");
+      contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataURL = canvas.toDataURL("image/png");
+
+      const fotoContainer = document.getElementById("foto-result");
+      fotoContainer.innerHTML = `<img src="${dataURL}" alt="Tu foto">`;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      cargarCarrito();
+      renderProductos("juegos-lista", juegos);
+      renderProductos("suscripciones-lista", suscripciones);
+      renderProductos("accesorios-lista", accesorios);
+
+      document.body.addEventListener("click", manejarAgregarCarrito);
+      document.getElementById("btn-ver-carrito").addEventListener("click", abrirCarrito);
+      document.getElementById("btn-cerrar-carrito").addEventListener("click", cerrarCarrito);
+      document.getElementById("input-buscar").addEventListener("input", filtrarTodo);
+
+      let camaraEncendida = false;
+      const botonCamara = document.getElementById("boton-camara");
+
+      botonCamara.addEventListener("click", async () => {
+        if (!camaraEncendida) {
+          await iniciarCamara();
+          botonCamara.textContent = "Desactivar Cámara";
+          camaraEncendida = true;
+        } else {
+          detenerCamara();
+          botonCamara.textContent = "Activar Cámara";
+          camaraEncendida = false;
+        }
+      });
+
+      document.getElementById("tomar-foto").addEventListener("click", tomarFoto);
+    });
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="logo">GameStore PWA</h1>
+    <nav class="nav-principal">
+      <a href="#juegos" class="nav-link">Videojuegos</a>
+      <a href="#suscripciones" class="nav-link">Suscripciones</a>
+      <a href="#accesorios" class="nav-link">Accesorios</a>
+      <a href="#camara" class="nav-link">Foto con tu juego</a>
+    </nav>
+    <div class="topbar-right">
+      <input type="search" id="input-buscar" placeholder="Buscar productos…" />
+      <button id="btn-ver-carrito" class="btn-carrito">
+        🛒 <span id="carrito-cantidad">0</span>
+      </button>
+    </div>
+  </header>
+  <main class="main">
+    <section id="juegos" class="seccion-tienda">
+      <h2>Videojuegos</h2>
+      <div id="juegos-lista" class="producto-grid"></div>
+    </section>
+    <section id="suscripciones" class="seccion-tienda">
+      <h2>Suscripciones</h2>
+      <div id="suscripciones-lista" class="producto-grid"></div>
+    </section>
+    <section id="accesorios" class="seccion-tienda">
+      <h2>Accesorios de Consolas</h2>
+      <div id="accesorios-lista" class="producto-grid"></div>
+    </section>
+    <section id="camara" class="seccion-tienda">
+      <h2>Foto con tu juego o consola favorita</h2>
+      <button id="boton-camara">Activar Cámara</button>
+      <video id="video" width="320" height="240" autoplay></video>
+      <button id="tomar-foto">Tomar Foto</button>
+      <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+      <div id="foto-result"></div>
+    </section>
+  </main>
+  <div id="modal-carrito" class="modal-carrito oculto">
+    <div class="contenido-carrito">
+      <h2>Carrito de Compras</h2>
+      <button id="btn-cerrar-carrito" class="btn-cerrar">✖</button>
+      <ul id="carrito-items" class="lista-carrito"></ul>
+      <p id="carrito-total" class="total-carrito"></p>
+    </div>
+  </div>
+</body>
+</html>
